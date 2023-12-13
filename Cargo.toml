@@ -13,8 +13,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-authors = [ "Moondance Labs" ]
-repository = "https://github.com/moondance-labs/tanssi"
+authors    = [ "Ajuna Network <https://github.com/ajuna-network>" ]
+edition    = "2021"
+homepage   = "https://ajuna.io"
+repository = "https://github.com/ajuna-network/Ajuna"
+version    = "0.1.0"
 
 [workspace.dependencies]
 
@@ -81,7 +84,9 @@ frame-system-rpc-runtime-api = { git = "https://github.com/moondance-labs/polkad
 frame-try-runtime = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-balances = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-im-online = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
+pallet-insecure-randomness-collective-flip = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-message-queue = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
+pallet-nfts = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-proxy = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-root-testing = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
 pallet-session = { git = "https://github.com/moondance-labs/polkadot-sdk", branch = "tanssi-polkadot-v1.3.0", default-features = false }
@@ -260,6 +265,10 @@ thiserror = { version = "1.0.40" }
 tokio = { version = "1.32.0", default-features = false }
 tracing = { version = "0.1.37", default-features = false }
 url = "2.2.2"
+
+# Ajuna
+pallet-ajuna-awesome-avatars = { path = "container-chains/pallets/ajuna-awesome-avatars", default-features = false }
+pallet-ajuna-nft-transfer    = { path = "container-chains/pallets/ajuna-nft-transfer", default-features = false }
 
 [patch.crates-io]
 jsonrpsee = { git = "https://github.com/moondance-labs/jsonrpsee", branch = "tanssi-polkadot-v1.1.0" }

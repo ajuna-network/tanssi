@@ -17,6 +17,11 @@ scale-info = { workspace = true, features = [ "derive" ] }
 serde = { workspace = true, optional = true, features = [ "derive" ] }
 smallvec = { workspace = true }
 
+
+# Ajuna pallets
+pallet-ajuna-awesome-avatars = { workspace = true }
+pallet-ajuna-nft-transfer = { workspace = true }
+
 # Local
 pallet-cc-authorities-noting = { workspace = true }
 tp-consensus = { workspace = true }
@@ -35,7 +40,9 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-proxy = { workspace = true }
+pallet-nfts = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -101,11 +108,15 @@ std = [
 	"frame-try-runtime/std",
 	"log/std",
 	"nimbus-primitives/std",
+	"pallet-ajuna-awesome-avatars/std",
+	"pallet-ajuna-nft-transfer/std",
 	"pallet-author-inherent/std",
 	"pallet-balances/std",
 	"pallet-cc-authorities-noting/std",
+	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-maintenance-mode/std",
 	"pallet-migrations/std",
+	"pallet-nfts/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
@@ -147,10 +158,14 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
+	"pallet-ajuna-awesome-avatars/runtime-benchmarks",
+	"pallet-ajuna-nft-transfer/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-cc-authorities-noting/runtime-benchmarks",
+	"pallet-nfts/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"staging-xcm-builder/runtime-benchmarks",
 ]
@@ -162,14 +177,18 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"nimbus-primitives/try-runtime",
+	"pallet-ajuna-awesome-avatars/try-runtime",
+	"pallet-ajuna-nft-transfer/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-cc-authorities-noting/try-runtime",
+	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-maintenance-mode/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-tx-pause/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",

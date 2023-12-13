@@ -38,8 +38,8 @@ use {
         pallet_prelude::DispatchResult,
         parameter_types,
         traits::{
-            ConstU128, ConstU32, ConstU64, ConstU8, Contains, InsideBoth, InstanceFilter,
-            OffchainWorker, OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
+            AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64, ConstU8, Contains, InsideBoth,
+            InstanceFilter, OffchainWorker, OnFinalize, OnIdle, OnInitialize, OnRuntimeUpgrade,
         },
         weights::{
             constants::{
@@ -49,10 +49,11 @@ use {
             ConstantMultiplier, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
             WeightToFeePolynomial,
         },
+        PalletId,
     },
     frame_system::{
         limits::{BlockLength, BlockWeights},
-        EnsureRoot,
+        EnsureRoot, EnsureSigned,
     },
     nimbus_primitives::NimbusId,
     pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier},
@@ -60,7 +61,7 @@ use {
     scale_info::TypeInfo,
     smallvec::smallvec,
     sp_api::impl_runtime_apis,
-    sp_core::{MaxEncodedLen, OpaqueMetadata},
+    sp_core::{Get, MaxEncodedLen, OpaqueMetadata},
     sp_runtime::{
         create_runtime_str, generic, impl_opaque_keys,
         traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
@@ -154,7 +155,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         // in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
         // in our template, we map to 1/10 of that, or 1/10 MILLIUNIT
-        let p = MILLIUNIT / 10;
+        let p = MILLI_UNIT / 10;
         let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
         smallvec![WeightToFeeCoefficient {
             degree: 1,
@@ -220,18 +221,20 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const SUPPLY_FACTOR: Balance = 100;
 
 // Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const MILLIUNIT: Balance = 1_000_000_000;
-pub const MICROUNIT: Balance = 1_000_000;
+pub const UNIT: Balance = 1_000 * MILLI_UNIT;
+pub const MILLI_UNIT: Balance = 1_000 * MICRO_UNIT;
+pub const MICRO_UNIT: Balance = 1_000 * NANO_UNIT;
+pub const NANO_UNIT: Balance = 1_000 * PICO_UNIT;
+pub const PICO_UNIT: Balance = 1;
 
-pub const STORAGE_BYTE_FEE: Balance = 100 * MICROUNIT * SUPPLY_FACTOR;
+pub const STORAGE_BYTE_FEE: Balance = 100 * MICRO_UNIT * SUPPLY_FACTOR;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-    items as Balance * 100 * MILLIUNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
+    items as Balance * 100 * MILLI_UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
 }
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
-pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
+pub const EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.
@@ -685,6 +688,12 @@ construct_runtime!(
         Balances: pallet_balances = 10,
         TransactionPayment: pallet_transaction_payment = 11,
 
+        // Ajuna stuff.
+        AwesomeAvatars: pallet_ajuna_awesome_avatars = 20,
+        Randomness: pallet_insecure_randomness_collective_flip = 30,
+        Nft: pallet_nfts = 31,
+        NftTransfer: pallet_ajuna_nft_transfer = 32,
+
         // ContainerChain Author Verification
         AuthoritiesNoting: pallet_cc_authorities_noting = 50,
         AuthorInherent: pallet_author_inherent = 51,
@@ -944,4 +953,118 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>
     CheckInherents = CheckInherents,
+}
+
+// Ajuna stuff
+impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
+parameter_types! {
+    pub const CollectionDeposit: Balance = NANO_UNIT;
+    pub const ItemDeposit: Balance = NANO_UNIT;
+    pub const StringLimit: u32 = 128;
+    pub const AttributeDepositBase: Balance = deposit(1, 0);
+    pub const MetadataDepositBase: Balance = 0;
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    pub const ApprovalsLimit: u32 = 1;
+    pub const ItemAttributesApprovalsLimit: u32 = 10;
+    pub const MaxTips: u32 = 1;
+    pub const MaxDeadlineDuration: u32 = 1;
+    pub const MaxAttributesPerCall: u32 = 10;
+    pub NftFeatures: pallet_nfts::PalletFeatures = pallet_nfts::PalletFeatures::all_enabled();
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct ParameterGet<const N: u32>;
+
+impl<const N: u32> Get<u32> for ParameterGet<N> {
+    fn get() -> u32 {
+        N
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct NftBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl<CollectionId: From<u16>, ItemId: From<[u8; 32]>>
+    pallet_nfts::BenchmarkHelper<CollectionId, ItemId> for NftBenchmarkHelper
+{
+    fn collection(i: u16) -> CollectionId {
+        i.into()
+    }
+    fn item(i: u16) -> ItemId {
+        let mut id = [0_u8; 32];
+        let bytes = i.to_be_bytes();
+        id[0] = bytes[0];
+        id[1] = bytes[1];
+        id.into()
+    }
+}
+
+pub type KeyLimit = ParameterGet<32>;
+pub type ValueLimit = ParameterGet<64>;
+
+/// Alias to the public key used for this chain, actually a `MultiSigner`. Like the signature, this
+/// also isn't a fixed size when encoded, as different cryptos have different size public keys.
+pub type AccountPublic = <Signature as Verify>::Signer;
+
+/// Identifier of a collection of NFTs.
+pub type CollectionId = u32;
+
+impl pallet_nfts::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type CollectionId = CollectionId;
+    type ItemId = Hash;
+    type Currency = Balances;
+    type ForceOrigin = EnsureRoot<AccountId>;
+    type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+    type Locker = NftTransfer;
+    type CollectionDeposit = CollectionDeposit;
+    type ItemDeposit = ItemDeposit;
+    type MetadataDepositBase = MetadataDepositBase;
+    type AttributeDepositBase = AttributeDepositBase;
+    type DepositPerByte = DepositPerByte;
+    type StringLimit = StringLimit;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type ApprovalsLimit = ApprovalsLimit;
+    type ItemAttributesApprovalsLimit = ItemAttributesApprovalsLimit;
+    type MaxTips = MaxTips;
+    type MaxDeadlineDuration = MaxDeadlineDuration;
+    type MaxAttributesPerCall = MaxAttributesPerCall;
+    type Features = NftFeatures;
+    type OffchainSignature = Signature;
+    type OffchainPublic = AccountPublic;
+    #[cfg(feature = "runtime-benchmarks")]
+    type Helper = NftBenchmarkHelper;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const NftTransferPalletId: PalletId = PalletId(*b"aj/nfttr");
+}
+
+impl pallet_ajuna_nft_transfer::Config for Runtime {
+    type PalletId = NftTransferPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type CollectionId = CollectionId;
+    type ItemId = Hash;
+    type ItemConfig = pallet_nfts::ItemConfig;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type NftHelper = Nft;
+}
+
+parameter_types! {
+    pub const AwesomeAvatarsPalletId: PalletId = PalletId(*b"aj/aaatr");
+}
+
+impl pallet_ajuna_awesome_avatars::Config for Runtime {
+    type PalletId = AwesomeAvatarsPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type Randomness = Randomness;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type NftHandler = NftTransfer;
+    type WeightInfo = ();
 }
