@@ -7,20 +7,21 @@ license = "GPL-3.0-only"
 version = "0.1.0"
 
 [package.metadata.docs.rs]
-targets = [ "x86_64-unknown-linux-gnu" ]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 hex-literal = { workspace = true, optional = true }
 log = { workspace = true }
-parity-scale-codec = { workspace = true, features = [ "derive" ] }
-scale-info = { workspace = true, features = [ "derive" ] }
-serde = { workspace = true, optional = true, features = [ "derive" ] }
+parity-scale-codec = { workspace = true, features = ["derive"] }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, optional = true, features = ["derive"] }
 smallvec = { workspace = true }
 
 
 # Ajuna pallets
 pallet-ajuna-awesome-avatars = { workspace = true }
 pallet-ajuna-nft-transfer = { workspace = true }
+pallet-hexalem = { workspace = true }
 
 # Local
 pallet-cc-authorities-noting = { workspace = true }
@@ -29,7 +30,7 @@ tp-consensus = { workspace = true }
 # Moonkit
 nimbus-primitives = { workspace = true }
 pallet-author-inherent = { workspace = true }
-pallet-maintenance-mode = { workspace = true, features = [ "xcm-support" ] }
+pallet-maintenance-mode = { workspace = true, features = ["xcm-support"] }
 pallet-migrations = { workspace = true }
 xcm-primitives = { workspace = true }
 
@@ -92,7 +93,7 @@ frame-try-runtime = { workspace = true, optional = true }
 substrate-wasm-builder = { workspace = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
@@ -113,6 +114,7 @@ std = [
 	"pallet-author-inherent/std",
 	"pallet-balances/std",
 	"pallet-cc-authorities-noting/std",
+	"pallet-hexalem/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-maintenance-mode/std",
 	"pallet-migrations/std",
@@ -149,7 +151,7 @@ std = [
 ]
 
 # Allow to print logs details (no wasm:stripped)
-force-debug = [ "sp-debug-derive/force-debug" ]
+force-debug = ["sp-debug-derive/force-debug"]
 
 runtime-benchmarks = [
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

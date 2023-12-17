@@ -28,6 +28,10 @@ use sp_version::NativeVersion;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
+use pallet_hexalem::{
+    GetTileInfo, ResourceAmount, ResourceProductions, ResourceType, ResourceUnit, TileCost,
+    TilePattern, TileType, NUMBER_OF_RESOURCE_TYPES, NUMBER_OF_TILE_TYPES,
+};
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use {
     cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases,
@@ -138,6 +142,48 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     pallet_maintenance_mode::ExecutiveHooks<Runtime>,
 >;
+
+#[derive(Encode, Decode, Debug, TypeInfo, Copy, Clone, MaxEncodedLen, Eq, PartialEq)]
+pub struct HexalemTile(u8);
+
+impl GetTileInfo for HexalemTile {
+    fn get_type(&self) -> TileType {
+        TileType::from_u8((self.0 >> 3) & 0x7)
+    }
+
+    fn get_level(&self) -> u8 {
+        (self.0 >> 6) & 0x3
+    }
+
+    fn set_level(&mut self, level: u8) {
+        self.0 = (self.0 & 0x3F) | (level << 6);
+    }
+
+    fn get_pattern(&self) -> TilePattern {
+        TilePattern::from_u8(self.0 & 0x7)
+    }
+
+    fn set_pattern(&mut self, pattern: TilePattern) {
+        self.0 = (self.0 & 0xF8) | (pattern as u8);
+    }
+
+    fn get_home() -> Self {
+        Self(8) // Home level 0
+    }
+}
+
+impl HexalemTile {
+    pub fn new(tile_type: TileType, level: u8, pattern: TilePattern) -> Self {
+        let encoded = ((tile_type as u8) << 3) | ((level & 0x3) << 6) | (pattern as u8 & 0x7);
+        Self(encoded)
+    }
+}
+
+impl Default for HexalemTile {
+    fn default() -> Self {
+        Self(0) // Empty tile
+    }
+}
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
@@ -690,6 +736,7 @@ construct_runtime!(
 
         // Ajuna stuff.
         AwesomeAvatars: pallet_ajuna_awesome_avatars = 20,
+        HexalemModule: pallet_hexalem = 21,
         Randomness: pallet_insecure_randomness_collective_flip = 30,
         Nft: pallet_nfts = 31,
         NftTransfer: pallet_ajuna_nft_transfer = 32,
@@ -1067,4 +1114,161 @@ impl pallet_ajuna_awesome_avatars::Config for Runtime {
     type ValueLimit = ValueLimit;
     type NftHandler = NftTransfer;
     type WeightInfo = ();
+}
+
+parameter_types! {
+	pub const HexalemMaxPlayers: u8 = 100;
+	pub const HexalemMinPlayers: u8 = 1;
+	pub const HexalemMaxRounds: u8 = 25;
+
+	pub const HexalemBlocksToPlayLimit: u8 = 10;
+
+	pub const HexalemMaxHexGridSize: u8 = 25;
+	pub const HexalemMaxTileSelection: u8 = 16;
+
+	pub const HexalemTileResourceProductions: [ResourceProductions; NUMBER_OF_TILE_TYPES] = [
+		// Empty
+		ResourceProductions{
+			produces: [0, 0, 0, 0, 0, 0, 0],
+			human_requirements: [0, 0, 0, 0, 0, 0, 0],
+		},
+		// Home
+		ResourceProductions{
+			produces: [0, 1, 0, 0, 0, 0, 0],
+			human_requirements: [0, 0, 0, 0, 0, 0, 0],
+		},
+		// Grass
+		ResourceProductions{
+			produces: [0, 0, 0, 2, 0, 0, 0],
+			human_requirements: [0, 0, 0, 0, 0, 0, 0],
+		},
+		// Water
+		ResourceProductions{
+			produces: [0, 0, 2, 0, 0, 0, 0],
+			human_requirements: [0, 0, 0, 0, 0, 0, 0],
+		},
+		// Mountain
+		ResourceProductions{
+			produces: [0, 0, 0, 0, 0, 4, 0],
+			human_requirements: [0, 0, 0, 0, 0, 4, 0],
+		},
+		// Tree
+		ResourceProductions{
+			produces: [0, 0, 0, 1, 3, 0, 0],
+			human_requirements: [0, 0, 0, 0, 2, 0, 0],
+		},
+		// Desert
+		ResourceProductions{
+			produces: [0, 0, 0, 0, 0, 0, 0],
+			human_requirements: [0, 0, 0, 0, 0, 0, 0],
+		},
+		// Cave
+		ResourceProductions{
+			produces: [0, 0, 0, 0, 0, 2, 1],
+			human_requirements: [0, 0, 0, 0, 0, 2, 3],
+		},
+	];
+
+	pub const HexalemTileCosts: [TileCost<Runtime>; 15] = [
+		// tile_to_buy: HexalemTile(16), // Grass, level 0
+		// tile_to_buy: HexalemTile(24), // Water, level 0
+		// tile_to_buy: HexalemTile(32), // Mountain, level 0
+		// tile_to_buy: HexalemTile(40), // Tree, level 0
+		// tile_to_buy: HexalemTile(48), // Desert, level 0
+		// tile_to_buy: HexalemTile(56), // Cave, level 0
+
+		TileCost {
+			tile_to_buy: HexalemTile(16), // Grass, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(16), // Grass, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(16), // Grass, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(24), // Water, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(24), // Water, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(24), // Water, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+
+		TileCost {
+			tile_to_buy: HexalemTile(32), // Mountain, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(32), // Mountain, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(32), // Mountain, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(40), // Tree, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(40), // Tree, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(40), // Tree, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(48), // Desert, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(56), // Cave, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+		TileCost {
+			tile_to_buy: HexalemTile(56), // Cave, level 0
+			cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+		},
+	];
+
+	pub const HexalemFoodPerHuman: u8 = 1u8;
+	pub const HexalemWaterPerHuman: u8 = 2u8;
+	pub const HexalemHomePerHumans: u8 = 3u8;
+	pub const HexalemFoodPerTree: u8 = 1u8;
+
+	pub const HexalemDefaultPlayerResources: [ResourceUnit; NUMBER_OF_RESOURCE_TYPES] = [1, 1, 0, 0, 0, 0, 0];
+
+	pub const HexalemTargetGoalGold: u8 = 10u8;
+	pub const HexalemTargetGoalHuman: u8 = 7u8;
+
+}
+
+impl pallet_hexalem::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_hexalem::weights::SubstrateWeight<Runtime>;
+    type MaxPlayers = HexalemMaxPlayers;
+    type MinPlayers = HexalemMinPlayers;
+    type MaxRounds = HexalemMaxRounds;
+    type BlocksToPlayLimit = HexalemBlocksToPlayLimit;
+    type MaxHexGridSize = HexalemMaxHexGridSize;
+    type MaxTileSelection = HexalemMaxTileSelection;
+    type Tile = HexalemTile;
+    type TileCosts = HexalemTileCosts;
+    type TileResourceProductions = HexalemTileResourceProductions;
+    type WaterPerHuman = HexalemWaterPerHuman;
+    type FoodPerHuman = HexalemFoodPerHuman;
+    type FoodPerTree = HexalemFoodPerTree;
+    type HomePerHumans = HexalemHomePerHumans;
+    type DefaultPlayerResources = HexalemDefaultPlayerResources;
+    type TargetGoalGold = HexalemTargetGoalGold;
+    type TargetGoalHuman = HexalemTargetGoalHuman;
 }
