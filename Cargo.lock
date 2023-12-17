@@ -1794,6 +1794,7 @@ dependencies = [
  "pallet-author-inherent",
  "pallet-balances",
  "pallet-cc-authorities-noting",
+ "pallet-hexalem",
  "pallet-insecure-randomness-collective-flip",
  "pallet-maintenance-mode",
  "pallet-migrations",
@@ -7923,6 +7924,21 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-hexalem"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "hex",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
