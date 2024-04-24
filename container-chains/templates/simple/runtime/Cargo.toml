@@ -7,7 +7,7 @@ license = "GPL-3.0-only"
 version = "0.1.0"
 
 [package.metadata.docs.rs]
-targets = [ "x86_64-unknown-linux-gnu" ]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [lints]
 workspace = true
@@ -15,10 +15,18 @@ workspace = true
 [dependencies]
 hex-literal = { workspace = true, optional = true }
 log = { workspace = true }
-parity-scale-codec = { workspace = true, features = [ "derive" ] }
-scale-info = { workspace = true, features = [ "derive" ] }
-serde = { workspace = true, optional = true, features = [ "derive" ] }
+parity-scale-codec = { workspace = true, features = ["derive"] }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, optional = true, features = ["derive"] }
 smallvec = { workspace = true }
+
+
+# Ajuna pallets
+pallet-ajuna-affiliates = { workspace = true }
+pallet-ajuna-awesome-avatars = { workspace = true }
+pallet-ajuna-nft-transfer = { workspace = true }
+pallet-ajuna-tournament = { workspace = true }
+pallet-hexalem = { workspace = true }
 
 # Local
 dp-consensus = { workspace = true }
@@ -33,7 +41,7 @@ nimbus-primitives = { workspace = true }
 pallet-async-backing = { workspace = true }
 pallet-author-inherent = { workspace = true }
 pallet-foreign-asset-creator = { workspace = true }
-pallet-maintenance-mode = { workspace = true, features = [ "xcm-support" ] }
+pallet-maintenance-mode = { workspace = true, features = ["xcm-support"] }
 pallet-migrations = { workspace = true }
 xcm-primitives = { workspace = true }
 
@@ -48,9 +56,11 @@ frame-system-rpc-runtime-api = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
+pallet-nfts = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -105,7 +115,7 @@ frame-try-runtime = { workspace = true, optional = true }
 substrate-wasm-builder = { workspace = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"async-backing-primitives/std",
 	"cumulus-pallet-dmp-queue/std",
@@ -131,13 +141,20 @@ std = [
 	"pallet-asset-rate/std",
 	"pallet-assets/std",
 	"pallet-async-backing/std",
+	"pallet-ajuna-affiliates/std",
+	"pallet-ajuna-awesome-avatars/std",
+	"pallet-ajuna-nft-transfer/std",
+	"pallet-ajuna-tournament/std",
 	"pallet-author-inherent/std",
 	"pallet-balances/std",
 	"pallet-cc-authorities-noting/std",
+	"pallet-hexalem/std",
+	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-foreign-asset-creator/std",
 	"pallet-maintenance-mode/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
+	"pallet-nfts/std",
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-root-testing/std",
@@ -182,7 +199,7 @@ std = [
 ]
 
 # Allow to print logs details (no wasm:stripped)
-force-debug = [ "sp-debug-derive/force-debug" ]
+force-debug = ["sp-debug-derive/force-debug"]
 
 runtime-benchmarks = [
 	"cumulus-pallet-dmp-queue/runtime-benchmarks",
@@ -197,12 +214,15 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
+	"pallet-ajuna-awesome-avatars/runtime-benchmarks",
+	"pallet-ajuna-nft-transfer/runtime-benchmarks",
 	"nimbus-primitives/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-author-inherent/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-cc-authorities-noting/runtime-benchmarks",
+	"pallet-nfts/runtime-benchmarks",
 	"pallet-foreign-asset-creator/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
@@ -215,6 +235,7 @@ runtime-benchmarks = [
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm-executor-utils/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
@@ -236,22 +257,31 @@ try-runtime = [
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
 	"nimbus-primitives/try-runtime",
+	"pallet-ajuna-affiliates/try-runtime",
+	"pallet-ajuna-awesome-avatars/try-runtime",
+	"pallet-ajuna-nft-transfer/try-runtime",
+	"pallet-ajuna-tournament/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-async-backing/try-runtime",
 	"pallet-author-inherent/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-cc-authorities-noting/try-runtime",
+	"pallet-hexalem/try-runtime",
+	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-foreign-asset-creator/try-runtime",
 	"pallet-maintenance-mode/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-nfts/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-tx-pause/try-runtime",
 	"pallet-utility/try-runtime",

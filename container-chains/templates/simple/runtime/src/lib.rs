@@ -43,7 +43,8 @@ use {
         pallet_prelude::DispatchResult,
         parameter_types,
         traits::{
-            ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, InsideBoth, InstanceFilter,
+            AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains,
+            InsideBoth, InstanceFilter,
         },
         weights::{
             constants::{
@@ -53,12 +54,17 @@ use {
             ConstantMultiplier, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
             WeightToFeePolynomial,
         },
+        PalletId,
     },
     frame_system::{
         limits::{BlockLength, BlockWeights},
-        EnsureRoot,
+        EnsureRoot, EnsureSigned,
     },
     nimbus_primitives::{NimbusId, SlotBeacon},
+    pallet_hexalem::{
+        GetTileInfo, ResourceAmount, ResourceProductions, ResourceType, ResourceUnit, TileCost,
+        TilePattern, TileType, NUMBER_OF_RESOURCE_TYPES, NUMBER_OF_TILE_TYPES,
+    },
     pallet_transaction_payment::CurrencyAdapter,
     parity_scale_codec::{Decode, Encode},
     polkadot_runtime_common::SlowAdjustingFeeUpdate,
@@ -66,7 +72,7 @@ use {
     smallvec::smallvec,
     sp_api::impl_runtime_apis,
     sp_consensus_slots::{Slot, SlotDuration},
-    sp_core::{MaxEncodedLen, OpaqueMetadata},
+    sp_core::{Get, MaxEncodedLen, OpaqueMetadata},
     sp_runtime::{
         create_runtime_str, generic, impl_opaque_keys,
         traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
@@ -159,6 +165,48 @@ pub mod currency {
     }
 }
 
+#[derive(Encode, Decode, Debug, TypeInfo, Copy, Clone, MaxEncodedLen, Eq, PartialEq)]
+pub struct HexalemTile(u8);
+
+impl GetTileInfo for HexalemTile {
+    fn get_type(&self) -> TileType {
+        TileType::from_u8((self.0 >> 3) & 0x7)
+    }
+
+    fn get_level(&self) -> u8 {
+        (self.0 >> 6) & 0x3
+    }
+
+    fn set_level(&mut self, level: u8) {
+        self.0 = (self.0 & 0x3F) | (level << 6);
+    }
+
+    fn get_pattern(&self) -> TilePattern {
+        TilePattern::from_u8(self.0 & 0x7)
+    }
+
+    fn set_pattern(&mut self, pattern: TilePattern) {
+        self.0 = (self.0 & 0xF8) | (pattern as u8);
+    }
+
+    fn get_home() -> Self {
+        Self(8) // Home level 0
+    }
+}
+
+impl HexalemTile {
+    pub fn new(tile_type: TileType, level: u8, pattern: TilePattern) -> Self {
+        let encoded = ((tile_type as u8) << 3) | ((level & 0x3) << 6) | (pattern as u8 & 0x7);
+        Self(encoded)
+    }
+}
+
+impl Default for HexalemTile {
+    fn default() -> Self {
+        Self(0) // Empty tile
+    }
+}
+
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
 ///
@@ -175,7 +223,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         // in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLIUNIT:
         // in our template, we map to 1/10 of that, or 1/10 MILLIUNIT
-        let p = MILLIUNIT / 10;
+        let p = MILLI_UNIT / 10;
         let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
         smallvec![WeightToFeeCoefficient {
             degree: 1,
@@ -241,18 +289,20 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const SUPPLY_FACTOR: Balance = 100;
 
 // Unit = the base number of indivisible units for balances
-pub const UNIT: Balance = 1_000_000_000_000;
-pub const MILLIUNIT: Balance = 1_000_000_000;
-pub const MICROUNIT: Balance = 1_000_000;
+pub const UNIT: Balance = 1_000 * MILLI_UNIT;
+pub const MILLI_UNIT: Balance = 1_000 * MICRO_UNIT;
+pub const MICRO_UNIT: Balance = 1_000 * NANO_UNIT;
+pub const NANO_UNIT: Balance = 1_000 * PICO_UNIT;
+pub const PICO_UNIT: Balance = 1;
 
-pub const STORAGE_BYTE_FEE: Balance = 100 * MICROUNIT * SUPPLY_FACTOR;
+pub const STORAGE_BYTE_FEE: Balance = 100 * MICRO_UNIT * SUPPLY_FACTOR;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-    items as Balance * 100 * MILLIUNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
+    items as Balance * 100 * MILLI_UNIT * SUPPLY_FACTOR + (bytes as Balance) * STORAGE_BYTE_FEE
 }
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
-pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
+pub const EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.
@@ -658,6 +708,15 @@ construct_runtime!(
 
         // Other utilities
         Multisig: pallet_multisig = 16,
+
+        // Ajuna stuff.
+        AwesomeAvatars: pallet_ajuna_awesome_avatars = 20,
+        HexalemModule: pallet_hexalem = 21,
+        Randomness: pallet_insecure_randomness_collective_flip = 30,
+        Nft: pallet_nfts = 31,
+        NftTransfer: pallet_ajuna_nft_transfer = 32,
+        Affiliates: pallet_ajuna_affiliates::<Instance1> = 33,
+        Tournament: pallet_ajuna_tournament::<Instance1> = 34,
 
         // ContainerChain Author Verification
         AuthoritiesNoting: pallet_cc_authorities_noting = 50,
@@ -1138,4 +1197,306 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     CheckInherents = CheckInherents,
     BlockExecutor = pallet_author_inherent::BlockExecutor::<Runtime, Executive>,
+}
+
+// Ajuna stuff
+impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
+parameter_types! {
+    pub const CollectionDeposit: Balance = NANO_UNIT;
+    pub const ItemDeposit: Balance = NANO_UNIT;
+    pub const StringLimit: u32 = 128;
+    pub const AttributeDepositBase: Balance = deposit(1, 0);
+    pub const MetadataDepositBase: Balance = 0;
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    pub const ApprovalsLimit: u32 = 1;
+    pub const ItemAttributesApprovalsLimit: u32 = 10;
+    pub const MaxTips: u32 = 1;
+    pub const MaxDeadlineDuration: u32 = 1;
+    pub const MaxAttributesPerCall: u32 = 10;
+    pub NftFeatures: pallet_nfts::PalletFeatures = pallet_nfts::PalletFeatures::all_enabled();
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct ParameterGet<const N: u32>;
+
+impl<const N: u32> Get<u32> for ParameterGet<N> {
+    fn get() -> u32 {
+        N
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct NftBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl<CollectionId: From<u16>, ItemId: From<[u8; 32]>>
+    pallet_nfts::BenchmarkHelper<CollectionId, ItemId> for NftBenchmarkHelper
+{
+    fn collection(i: u16) -> CollectionId {
+        i.into()
+    }
+    fn item(i: u16) -> ItemId {
+        let mut id = [0_u8; 32];
+        let bytes = i.to_be_bytes();
+        id[0] = bytes[0];
+        id[1] = bytes[1];
+        id.into()
+    }
+}
+
+pub type KeyLimit = ParameterGet<32>;
+pub type ValueLimit = ParameterGet<64>;
+
+/// Alias to the public key used for this chain, actually a `MultiSigner`. Like the signature, this
+/// also isn't a fixed size when encoded, as different cryptos have different size public keys.
+pub type AccountPublic = <Signature as Verify>::Signer;
+
+/// Identifier of a collection of NFTs.
+pub type CollectionId = u32;
+
+impl pallet_nfts::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type CollectionId = CollectionId;
+    type ItemId = Hash;
+    type Currency = Balances;
+    type ForceOrigin = EnsureRoot<AccountId>;
+    type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+    type Locker = NftTransfer;
+    type CollectionDeposit = CollectionDeposit;
+    type ItemDeposit = ItemDeposit;
+    type MetadataDepositBase = MetadataDepositBase;
+    type AttributeDepositBase = AttributeDepositBase;
+    type DepositPerByte = DepositPerByte;
+    type StringLimit = StringLimit;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type ApprovalsLimit = ApprovalsLimit;
+    type ItemAttributesApprovalsLimit = ItemAttributesApprovalsLimit;
+    type MaxTips = MaxTips;
+    type MaxDeadlineDuration = MaxDeadlineDuration;
+    type MaxAttributesPerCall = MaxAttributesPerCall;
+    type Features = NftFeatures;
+    type OffchainSignature = Signature;
+    type OffchainPublic = AccountPublic;
+    #[cfg(feature = "runtime-benchmarks")]
+    type Helper = NftBenchmarkHelper;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const NftTransferPalletId: PalletId = PalletId(*b"aj/nfttr");
+}
+
+impl pallet_ajuna_nft_transfer::Config for Runtime {
+    type PalletId = NftTransferPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type CollectionId = CollectionId;
+    type ItemId = Hash;
+    type ItemConfig = pallet_nfts::ItemConfig;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type NftHelper = Nft;
+}
+
+parameter_types! {
+    pub const AwesomeAvatarsPalletId: PalletId = PalletId(*b"aj/aaatr");
+}
+
+parameter_types! {
+    pub const AffiliateMaxLevel: u32 = 2;
+}
+
+pub type AffiliatesInstance1 = pallet_ajuna_affiliates::Instance1;
+impl pallet_ajuna_affiliates::Config<AffiliatesInstance1> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuleIdentifier = pallet_ajuna_awesome_avatars::types::AffiliateMethods;
+    type RuntimeRule = pallet_ajuna_awesome_avatars::FeePropagationOf<Runtime>;
+    type AffiliateMaxLevel = AffiliateMaxLevel;
+}
+
+parameter_types! {
+    pub const TournamentPalletId1: PalletId = PalletId(*b"aj/trmt1");
+    pub const MinimumTournamentPhaseDuration: BlockNumber = 100;
+}
+
+type TournamentInstance1 = pallet_ajuna_tournament::Instance1;
+impl pallet_ajuna_tournament::Config<TournamentInstance1> for Runtime {
+    type PalletId = TournamentPalletId1;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type SeasonId = pallet_ajuna_awesome_avatars::types::SeasonId;
+    type EntityId = pallet_ajuna_awesome_avatars::AvatarIdOf<Runtime>;
+    type RankedEntity = pallet_ajuna_awesome_avatars::AvatarOf<Runtime>;
+    type MinimumTournamentPhaseDuration = MinimumTournamentPhaseDuration;
+}
+
+impl pallet_ajuna_awesome_avatars::Config for Runtime {
+    type PalletId = AwesomeAvatarsPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type Randomness = Randomness;
+    type KeyLimit = KeyLimit;
+    type ValueLimit = ValueLimit;
+    type NftHandler = NftTransfer;
+    type FeeChainMaxLength = AffiliateMaxLevel;
+    type AffiliateHandler = Affiliates;
+    type TournamentHandler = Tournament;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const HexalemMaxPlayers: u8 = 100;
+    pub const HexalemMinPlayers: u8 = 1;
+    pub const HexalemMaxRounds: u8 = 25;
+
+    pub const HexalemBlocksToPlayLimit: u8 = 10;
+
+    pub const HexalemMaxHexGridSize: u8 = 25;
+    pub const HexalemMaxTileSelection: u8 = 16;
+
+    pub const HexalemTileResourceProductions: [ResourceProductions; NUMBER_OF_TILE_TYPES] = [
+        // Empty
+        ResourceProductions{
+            produces: [0, 0, 0, 0, 0, 0, 0],
+            human_requirements: [0, 0, 0, 0, 0, 0, 0],
+        },
+        // Home
+        ResourceProductions{
+            produces: [0, 1, 0, 0, 0, 0, 0],
+            human_requirements: [0, 0, 0, 0, 0, 0, 0],
+        },
+        // Grass
+        ResourceProductions{
+            produces: [0, 0, 0, 2, 0, 0, 0],
+            human_requirements: [0, 0, 0, 0, 0, 0, 0],
+        },
+        // Water
+        ResourceProductions{
+            produces: [0, 0, 2, 0, 0, 0, 0],
+            human_requirements: [0, 0, 0, 0, 0, 0, 0],
+        },
+        // Mountain
+        ResourceProductions{
+            produces: [0, 0, 0, 0, 0, 4, 0],
+            human_requirements: [0, 0, 0, 0, 0, 4, 0],
+        },
+        // Tree
+        ResourceProductions{
+            produces: [0, 0, 0, 1, 3, 0, 0],
+            human_requirements: [0, 0, 0, 0, 2, 0, 0],
+        },
+        // Desert
+        ResourceProductions{
+            produces: [0, 0, 0, 0, 0, 0, 0],
+            human_requirements: [0, 0, 0, 0, 0, 0, 0],
+        },
+        // Cave
+        ResourceProductions{
+            produces: [0, 0, 0, 0, 0, 2, 1],
+            human_requirements: [0, 0, 0, 0, 0, 2, 3],
+        },
+    ];
+
+    pub const HexalemTileCosts: [TileCost<Runtime>; 15] = [
+        // tile_to_buy: HexalemTile(16), // Grass, level 0
+        // tile_to_buy: HexalemTile(24), // Water, level 0
+        // tile_to_buy: HexalemTile(32), // Mountain, level 0
+        // tile_to_buy: HexalemTile(40), // Tree, level 0
+        // tile_to_buy: HexalemTile(48), // Desert, level 0
+        // tile_to_buy: HexalemTile(56), // Cave, level 0
+
+        TileCost {
+            tile_to_buy: HexalemTile(16), // Grass, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(16), // Grass, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(16), // Grass, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(24), // Water, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(24), // Water, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(24), // Water, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+
+        TileCost {
+            tile_to_buy: HexalemTile(32), // Mountain, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(32), // Mountain, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(32), // Mountain, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(40), // Tree, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(40), // Tree, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(40), // Tree, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(48), // Desert, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(56), // Cave, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+        TileCost {
+            tile_to_buy: HexalemTile(56), // Cave, level 0
+            cost: ResourceAmount { resource_type: ResourceType::Mana, amount: 1, }
+        },
+    ];
+
+    pub const HexalemFoodPerHuman: u8 = 1u8;
+    pub const HexalemWaterPerHuman: u8 = 2u8;
+    pub const HexalemHomePerHumans: u8 = 3u8;
+    pub const HexalemFoodPerTree: u8 = 1u8;
+
+    pub const HexalemDefaultPlayerResources: [ResourceUnit; NUMBER_OF_RESOURCE_TYPES] = [1, 1, 0, 0, 0, 0, 0];
+
+    pub const HexalemTargetGoalGold: u8 = 10u8;
+    pub const HexalemTargetGoalHuman: u8 = 7u8;
+
+}
+
+impl pallet_hexalem::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_hexalem::weights::SubstrateWeight<Runtime>;
+    type MaxPlayers = HexalemMaxPlayers;
+    type MinPlayers = HexalemMinPlayers;
+    type MaxRounds = HexalemMaxRounds;
+    type BlocksToPlayLimit = HexalemBlocksToPlayLimit;
+    type MaxHexGridSize = HexalemMaxHexGridSize;
+    type MaxTileSelection = HexalemMaxTileSelection;
+    type Tile = HexalemTile;
+    type TileCosts = HexalemTileCosts;
+    type TileResourceProductions = HexalemTileResourceProductions;
+    type WaterPerHuman = HexalemWaterPerHuman;
+    type FoodPerHuman = HexalemFoodPerHuman;
+    type FoodPerTree = HexalemFoodPerTree;
+    type HomePerHumans = HexalemHomePerHumans;
+    type DefaultPlayerResources = HexalemDefaultPlayerResources;
+    type TargetGoalGold = HexalemTargetGoalGold;
+    type TargetGoalHuman = HexalemTargetGoalHuman;
 }
